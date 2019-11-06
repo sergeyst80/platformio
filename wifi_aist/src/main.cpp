@@ -2,34 +2,32 @@
 #include "m2m_gateway_drv.h"
 #include <Ticker.h>
 
+
 const char* ssid = "Home Wi-Fi 2";
-const char* password = "Barikina321bLab";
+const char* password = "IUserThisWiFi";
 //Static IP address configuration
-IPAddress staticIP(192, 168, 100, 100); //ESP static ip
+IPAddress staticIP(192, 168, 100, 10); //ESP static ip
 IPAddress gateway(192, 168, 100, 1);   //IP Address of your WiFi Router (Gateway)
 IPAddress subnet(255, 255, 255, 0);  //Subnet mask
 IPAddress dns(192, 168, 100, 1);  //DNS
 
-const char *deviceName = "wifi_m2m_gateway";
+const char *deviceName = "wifim2m";
 
 const uint16_t port = 10000;
-const char* host = "192.168.100.6";
+const char* host = "192.168.100.5";
 
-char m2m_init[] = {	0x24, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-					0x23, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
-					0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
-					0x31, 0x31, 0xff, 0x01, 0x32, 0x32, 0x32,
-					0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
-					0x32, 0x32, 0x32, 0x32, 0x32, 0xff, 0x01,
-					0x01, 0x88, 0x9d};
 
 T_m2m_gateway m2m_gateway(1);
 bool isInitM2m = true;
 bool isNotConnect = true;
+bool Timer1minFlag = false;
 Ticker Timer1min;
+
+void Timer1minISR();
 
 void setup()
 {
+	
 	Serial.begin(9600);
 	delay(1000);
 	WiFi.hostname(deviceName);     
@@ -62,32 +60,45 @@ void setup()
 	Serial.println(WiFi.status());
 	
 	//Serial.printf("Started, open %s in a web browser\n", WiFi.localIP().toString().c_str());
-	Timer1min.attach(60, Timer1minISR);
+	
 }
 
 void loop()
 {
 	WiFiClient client;
-	if (!client.connected()) {
+	//if (isNotConnect) {
 		while (!client.connect(host, port)) {
 			Serial.println("Connection to host failed");
-			bool isInitM2m = true;
 			delay(5000);
-			Serial.println("Connected to server successful!");
+			
 			//return;
 		}
-	}
+		//isNotConnect = false;
+		//Serial.println("Connected to server successful!");
+		bool isInitM2m = true;
+	
 	
 	if (isInitM2m) {
 		m2m_gateway.MakePacket(enumPacketType::INIT);
 		client.write(m2m_gateway.TxRxBuffer.Buf, m2m_gateway.TxRxBuffer.BufSize);
 		isInitM2m = false;
+		Timer1min.attach(60, Timer1minISR);
 	}
 
-	delay(5000);
+	if (Timer1minFlag) {
+		m2m_gateway.MakePacket(enumPacketType::HEARTBEAT);
+		client.write(m2m_gateway.TxRxBuffer.Buf, m2m_gateway.TxRxBuffer.BufSize);
+		Timer1minFlag = false;
+	};
+
+	//delay(5000);
 }
 
-
+void Timer1minISR()
+{
+	Timer1minFlag = true;
+	
+}
 
 /*
 #include "WebSocketsClient.h"

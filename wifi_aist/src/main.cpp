@@ -6,18 +6,16 @@
 const char* ssid = "Home Wi-Fi 2";
 const char* password = "IUserThisWiFi";
 //Static IP address configuration
-IPAddress staticIP(192, 168, 100, 10); //ESP static ip
+IPAddress staticIP(192, 168, 100, 50); //ESP static ip
 IPAddress gateway(192, 168, 100, 1);   //IP Address of your WiFi Router (Gateway)
 IPAddress subnet(255, 255, 255, 0);  //Subnet mask
 IPAddress dns(192, 168, 100, 1);  //DNS
 
-const char *deviceName = "wifim2m";
+const char *deviceName = "esp8266";
 
 const uint16_t port = 10000;
 const char* host = "192.168.100.5";
 
-
-T_m2m_gateway m2m_gateway(1);
 bool isInitM2m = true;
 bool isNotConnect = true;
 bool Timer1minFlag = false;
@@ -32,11 +30,15 @@ void setup()
 	delay(1000);
 	WiFi.hostname(deviceName);     
 	WiFi.config(staticIP, dns , gateway, subnet);
+	WiFi.disconnect();
 	WiFi.begin ( ssid, password );
+	//WiFi.begin("Home Wi-Fi 2", "IUserThisWiFi");
 	Serial.println ( "" );
 
 	// Wait for connection
 	while ( WiFi.status() != WL_CONNECTED ) {
+		
+    	//WiFi.begin(ssid, password);
 		delay ( 500 );
 		Serial.print ( "." );
 	}
@@ -66,17 +68,18 @@ void setup()
 void loop()
 {
 	WiFiClient client;
-	//if (isNotConnect) {
+	T_m2m_gateway m2m_gateway(1);
+	if (isNotConnect) {
 		while (!client.connect(host, port)) {
-			Serial.println("Connection to host failed");
+			//Serial.println("Connection to host failed");
 			delay(5000);
 			
 			//return;
 		}
-		//isNotConnect = false;
-		//Serial.println("Connected to server successful!");
+		isNotConnect = false;
+		Serial.println("Connected to server successful!");
 		bool isInitM2m = true;
-	
+	}
 	
 	if (isInitM2m) {
 		m2m_gateway.MakePacket(enumPacketType::INIT);

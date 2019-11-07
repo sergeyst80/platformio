@@ -1,8 +1,9 @@
 #include "m2m_gateway_drv.h"
-#include <iostream>
-#include <algorithm>
+//#include <iostream>
+//#include <algorithm>
 #include <string.h>
 using namespace std;
+
 
 template<typename T>
 void ConvLittleToBig(T* input) {
@@ -14,6 +15,7 @@ void ConvLittleToBig(T* input) {
        ++i;
     }
 }
+
 
 unsigned short CalcCRC16(char *Data, size_t DataLen) {
     char i;
@@ -64,6 +66,7 @@ void PrepareData(T& input, struct struct_m2m_gateway_Header& header, struct stru
     TxRxBuffer.BufSize += sizeof(input);
     memcpy(TxRxBuffer.Buf + offset, &input, TxRxBuffer.BufSize);
     unsigned short t = CalcCRC16(TxRxBuffer.Buf, TxRxBuffer.BufSize);
+    ConvLittleToBig(&t);
     memcpy(TxRxBuffer.Buf+TxRxBuffer.BufSize, &t, 2);
     TxRxBuffer.BufSize += 2;
 }

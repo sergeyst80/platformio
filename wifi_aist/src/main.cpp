@@ -6,39 +6,39 @@
 const char* ssid = "Home Wi-Fi 2";
 const char* password = "IUserThisWiFi";
 //Static IP address configuration
+/*
 IPAddress staticIP(192, 168, 100, 50); //ESP static ip
 IPAddress gateway(192, 168, 100, 1);   //IP Address of your WiFi Router (Gateway)
 IPAddress subnet(255, 255, 255, 0);  //Subnet mask
 IPAddress dns(192, 168, 100, 1);  //DNS
+*/
 
-const char *deviceName = "esp8266";
-
+const char *deviceName = "wifi_m2m_gateway";
 const uint16_t port = 10000;
 const char* host = "192.168.100.5";
 
-bool isInitM2m = true;
-bool isNotConnect = true;
-bool Timer1minFlag = false;
+bool isInitM2m;
+bool Timer1minFlag;
+
+T_m2m_gateway m2m_gateway(1);
+WiFiClient client;
 Ticker Timer1min;
 
 void Timer1minISR();
 
 void setup()
 {
-	
+	Timer1minFlag = false;
 	Serial.begin(9600);
 	delay(1000);
 	WiFi.hostname(deviceName);     
-	WiFi.config(staticIP, dns , gateway, subnet);
+	//WiFi.config(staticIP, dns , gateway, subnet);
 	WiFi.disconnect();
 	WiFi.begin ( ssid, password );
-	//WiFi.begin("Home Wi-Fi 2", "IUserThisWiFi");
 	Serial.println ( "" );
 
 	// Wait for connection
 	while ( WiFi.status() != WL_CONNECTED ) {
-		
-    	//WiFi.begin(ssid, password);
 		delay ( 500 );
 		Serial.print ( "." );
 	}
@@ -60,28 +60,23 @@ void setup()
 	Serial.println(WiFi.channel());
 	Serial.print("Status : ");
 	Serial.println(WiFi.status());
-	
-	//Serial.printf("Started, open %s in a web browser\n", WiFi.localIP().toString().c_str());
-	
 }
 
 void loop()
 {
-	WiFiClient client;
-	T_m2m_gateway m2m_gateway(1);
-	if (isNotConnect) {
+	if (!client.connected()) {
+		Serial.print("Connecting to server ");
+		Serial.println(host);
 		while (!client.connect(host, port)) {
-			//Serial.println("Connection to host failed");
-			delay(5000);
-			
-			//return;
+			Serial.println("Connection to host failed");
+			delay(10000);
 		}
-		isNotConnect = false;
 		Serial.println("Connected to server successful!");
-		bool isInitM2m = true;
+		isInitM2m = true;
 	}
 	
 	if (isInitM2m) {
+		Serial.println("Sending INIT packet to server");
 		m2m_gateway.MakePacket(enumPacketType::INIT);
 		client.write(m2m_gateway.TxRxBuffer.Buf, m2m_gateway.TxRxBuffer.BufSize);
 		isInitM2m = false;
@@ -89,12 +84,13 @@ void loop()
 	}
 
 	if (Timer1minFlag) {
+		Serial.println("Sending HeartBeat packet to server");
 		m2m_gateway.MakePacket(enumPacketType::HEARTBEAT);
 		client.write(m2m_gateway.TxRxBuffer.Buf, m2m_gateway.TxRxBuffer.BufSize);
 		Timer1minFlag = false;
 	};
 
-	//delay(5000);
+	delay(500);
 }
 
 void Timer1minISR()
@@ -102,109 +98,3 @@ void Timer1minISR()
 	Timer1minFlag = true;
 	
 }
-
-/*
-#include "WebSocketsClient.h"
-#include "ESP8266WiFi.h"
-#include "m2m_gateway_drv.h"
-
-WebSocketsClient webSocket;
-int m2m_port(10000);
-char m2m_addr[] = "192.168.1.84";
-char m2m_init[] = {	0x24, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-					0x23, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
-					0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
-					0x31, 0x31, 0x7f, 0x01, 0x32, 0x32, 0x32,
-					0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32,
-					0x32, 0x32, 0x32, 0x32, 0x32, 0x7f, 0x00,
-					0x01, 0xea, 0x0d};
-String s(m2m_init);
-
-#define USE_SERIAL Serial
-
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-
-	switch(type) {
-		case WStype_DISCONNECTED:
-			USE_SERIAL.printf("[WSc] Disconnected!\n");
-			break;
-		case WStype_CONNECTED: {
-			USE_SERIAL.printf("[WSc] Connected to url: %s\n", payload);
-			
-			// send message to server when Connected
-			webSocket.sendTXT("Connected");
-			webSocket.sendTXT(m2m_init);
-		}
-			break;
-		case WStype_TEXT:
-			USE_SERIAL.printf("[WSc] get text: %s\n", payload);
-
-			// send message to server
-			// webSocket.sendTXT("message here");
-			break;
-		case WStype_BIN:
-			USE_SERIAL.printf("[WSc] get binary length: %u\n", length);
-			hexdump(payload, length);
-
-			// send data to server
-			// webSocket.sendBIN(payload, length);
-			break;
-        case WStype_PING:
-            // pong will be send automatically
-            USE_SERIAL.printf("[WSc] get ping\n");
-            break;
-        case WStype_PONG:
-            // answer to a ping we send
-            USE_SERIAL.printf("[WSc] get pong\n");
-            break;
-    }
-
-}
-
-void setup() {
-
-	USE_SERIAL.begin(9600);
-
-	//Serial.setDebugOutput(true);
-	//USE_SERIAL.setDebugOutput(true);
-
-	USE_SERIAL.println();
-	USE_SERIAL.println();
-	USE_SERIAL.println();
-
-	for(uint8_t t = 4; t > 0; t--) {
-		USE_SERIAL.printf("[SETUP] BOOT WAIT %d...\n", t);
-		USE_SERIAL.flush();
-		delay(1000);
-	}
-
-	WiFi.begin("SMOEFI", "Barikina321bLab");
-	//WiFi.begin("Home Wi-Fi 2", "IUserThisWiFi");
-
-	Serial.print("Connecting");
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		Serial.print(".");
-	}
-	webSocket.begin(m2m_addr, m2m_port, "/");
-
-	// event handler
-	webSocket.onEvent(webSocketEvent);
-
-	// use HTTP Basic Authorization this is optional remove if not needed
-	//webSocket.setAuthorization("user", "Password");
-
-	// try ever 5000 again if connection has failed
-	webSocket.setReconnectInterval(5000);
-  
-  // start heartbeat (optional)
-  // ping server every 15000 ms
-  // expect pong from server within 3000 ms
-  // consider connection disconnected if pong is not received 2 times
-  webSocket.enableHeartbeat(15000, 3000, 2);
-}
-
-void loop() {
-webSocket.loop();
-}
-*/
